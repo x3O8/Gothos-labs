@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+*.pid
+.DS_Store
+Thumbs.db
+reference.mp4
+gothos-labs-preview.html
+.taste-skill/
+.impeccable/
+verification.json
+motion-verification.json

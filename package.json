@@ -1,0 +1,11 @@
+{
+  "name": "gothos-labs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs"
+  },
+  "description": "Gothos Labs medical solutions and AI website, featuring Arogya ELogBook"
+}
