@@ -1,44 +1,55 @@
 # Gothos Labs design
 
-The reference video's fixed navigation, split hero, black/lime palette, italic display accents, section order, and large lime statement panel remain the visual framework. The company hero now introduces medical solutions and a thoughtful use of AI, with ELogBook clearly identified as a flagship product rather than the whole company.
+## Design read
 
-## Hero: the product itself
+A spacious product-studio marketing site for teams and hospital buyers: a custom cream/sage/forest identity, with dimensional owl storytelling and a flat company-logo landing. Design variance 6, motion intensity 7 when enabled, visual density 3. The supplied layout, dark assistant section and latest 3D mascot instruction override general design-skill defaults.
 
-The right-hand hero now shows ELogBook's resident workspace in dark mode. The design is grounded in the application's sidebar structure, resident dashboard, profile panel, training insights, category links, and recent-entry area. Use zinc backgrounds derived from the source dark theme, teal clinical accents, and the application's Open Sauce One font. It is a coded interface preview with no personal records, not an authenticated app embed. The window now uses a translucent dark glass surface, 20px backdrop blur, brighter edge reflections, and translucent interior panels so the fibers diffuse through the UI. An opaque fallback remains when backdrop filtering is unavailable.
+## Composition
 
-The hero screen has a static perspective tilt of -6 degrees around its Y axis and 1 degree around X, echoing the initial reference shot. Phones use a gentler -3-degree Y tilt; the expanded dialog stays flat for reading and interaction.
+Five full-viewport flight stops with growing content where needed:
+1. Hero: masked two-line headline, sage shape, owl and short supporting copy.
+2. Section 01: pale numeral and owl on the left; company story and compact ELogBook invitation on the right.
+3. Section 02: dark-green gradient, translucent numeral, drifting leaves, verified assistant copy and clearly illustrative light chat preview.
+4. Section 03: light “Build with Gothos” and honest local enquiry form.
+5. Footer: invitation, reversible owl-to-logo lockup, simple supplied anchors and motion control.
 
-Six sidebar tabs switch the preview; dashboard category controls open their corresponding screens. The expand control moves the same interface into a larger native dialog and restores it on close. Sidebar navigation supports arrow keys, Home, and End. Small screens collapse the sidebar to icons while preserving accessible names. No invented totals or clinical examples are shown.
+Navigation is consistent across sections. The dark section changes navigation colour at the header's viewport position. Mobile navigation remains accessible through an expanded menu.
 
-## GhostFibers background
+## Tokens and typography
 
-Use the complete GhostFibers shaders supplied in Pasted text.txt. Preserve instanced dotted fibers, three twisting ribbons, five-level bloom, depth-of-field blur, mouse interaction, particles, and click pulses. Colors are configured to lime, pale green, and teal to match the site.
+Background #F7F6F1, sage #DDE9DF, emerald #2F8F5B, forest #1E5B3F, deep #123D2B, ink #14231B and muted #4A5F53. Locally bundled Poppins weights 300–800 use font-display:swap and upstream SIL OFL licensing. Existing unused font assets/licenses remain for provenance; their old font-face rules are removed.
 
-The plain JavaScript adapter removes the React lifecycle while retaining the supplied renderer. It adds the site's pause control, live reduced-motion preference updates, context-loss fallback/restoration, a 30fps target, a 1920px render limit, and DPR capped at 1.25. Phones use fewer threads and lower density. Rendering stops when the document is hidden. Static muted color fields remain if WebGL2 is unavailable. Text stays visible without JavaScript.
+Native controls, pill CTAs, one glass language for product previews/dialogs, generous space and soft sage shapes. No photos, flowers, invented logos or social links.
 
-Page scroll drives a smooth 144-degree rotation of the ribbon geometry across the full page, with 0.38-second exponential smoothing. Mouse movement gives the scene stronger yaw and pitch and parts the fibers near the pointer. Background clicks create light pulses; clicks on controls are ignored. Touch scrolling does not drive the mouse camera. Pause and reduced motion hold the scroll rotation still, and resume picks up the current page position.
+## Owl and motion
 
-## Product language
+The named inline SVG rig composites locally bundled, transparent 3D-rendered body and wing artwork generated from the video reference. Clipped copies of the same body image keep the glossy pupils responsive; shaded lids blink. The wing component is mirrored, hinged and eased into spread/fold poses behind the body. The dimensional character and trails crossfade into the original flat mark for the footer lockup. The shadow stays separate. This preserves the buildless stack and adds no rendering library or runtime service. Wing-aware viewport bounds account for the wider silhouette.
 
-Lead with postgraduate training: clinical work, academic activities, faculty verification, departmental targets, assessments, rotations, and printable records. Generic claims about ideas, curiosity, and building unrelated products have been removed. Role descriptions distinguish resident recording, faculty evaluation, and HOD requirements/access/oversight.
+owl.js owns one coordinated requestAnimationFrame loop. It combines actual measured section-top progress, eased holds/transitions, lag, scroll-direction swoop, pitch, wings, cursor/touch gaze, blink, shadow, trails and parallax. JS conversation timing registers with that scheduler instead of adding another loop. Measurements refresh on resize, fonts and content size changes. Hidden-tab work pauses.
 
-## Typography and assets
+The literal x=-.52 keyframe would put the centre offscreen. Flight targets preserve the intended composition but clamp visual bounds within the viewport. Footer minimum height ensures the last top is reachable and the logo transition can complete.
 
-Marketing uses locally bundled Manrope; display italics use Georgia. The interface preview uses locally bundled Open Sauce One, as the application does. Fonts and their supplied licenses are included. The owl mark continues to identify Gothos Labs.
+Animation uses transforms and opacity with static blur/masks. Letter reveals replace animated letter-spacing; chat uses scale/opacity rather than animated clipping. Reduced-motion/paused states remove flight, trails, flapping and parallax and show the assistant conversation statically.
 
-The video remains the visual reference for composition. The current source controls product terminology. The attached text controls the background effect. These explicit references take precedence over generic design defaults.
+## Product interactions
 
-## Scroll entrances and footer
+The original six-screen preview moves into one native dialog and returns to its hidden home on close. Keyboard tabs, empty states and focus return are preserved. The assistant illustration is an administrative example and plays once, then rests.
 
-Headings, descriptive copy, action buttons, activity labels, feature art, cards, role panels, and footer links fade in as they enter the viewport. Coarse text containers are split into separate reveal units; product screens and illustrated cards stay intact as single visual artifacts. Reveals use 650ms opacity and 850ms upward settling, staggered by 70ms with a maximum delay of 210ms. The observer triggers once, 24px inside the viewport, and keyboard focus immediately reveals the focused unit. Pause or reduced motion shows all content without transitions; scripts failing does not hide content.
+Hoot's native modal moves the interactive owl into the modal layer, flies it to the panel and restores it on close. At 390px it becomes a bottom sheet. Native focus trapping is reinforced for keyboard edges, Esc closes, and labelled controls have visible focus rings.
 
-The footer ends with a large two-part Gothos Labs wordmark, in Manrope with a lime Labs accent. It spans the full footer grid and links to the top. Its responsive type is sized to stay within the content width from 320px upward.
+## Reference inspection
 
-## Company positioning
+The supplied 40-second 1280x720 video was inspected through six actual frames at 0.05, 7.6, 15.2, 22.8, 30.4 and 38.4 seconds using a temporary loopback-only viewer. This establishes representative composition/poses, not frame-perfect continuous-motion matching.
 
-The headline is Built for medicine. Made for people. Hero, about, contact, and footer copy now speak to Gothos Labs' broader medical-software and AI focus, supplied directly by the user. Product-specific features remain explicitly about ELogBook. The marked header badge, hero announcement badge, and small duplicate footer logo are removed. The large footer wordmark remains. Mobile headline sizing is adapted for the longer copy.
+Retained reference signals: cream/sage background, large pale numerals, wing spread/fold, curved motion, dark leaves and the chat dock. Ignored: browser chrome, garbled text, inconsistent navigation/section labels, phone flash, unsupported buttons and unsupported page artifacts. The reference video and inspection tooling are not site assets.
 
-## Validation limits
+## Verification
 
-Source and HTTP checks are recorded in verification.json. Browser/GPU and responsive visual checks are reported separately; a static source check is not a rendering pass.
+See HANDOFF.md for actual screenshots, functional results and limitations. Visual verification is at desktop, a short laptop viewport and 390px; full-motion, pause and reduced-motion states must be reported separately. A configured synthetic iframe check is not a live assistant or microphone validation.
+
+
+## Approved appearance change
+
+The developer explicitly requested a realistic 3D look matching the video after the flat implementation. This overrides the earlier instruction to ignore the video's dimensional owl shading. Body and wing assets use the built-in image generation tool, remain local and preserve transparent alpha. No provider key, runtime dependency or live endpoint is introduced.
+
 

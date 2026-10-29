@@ -1,91 +1,105 @@
+
 (() => {
-'use strict';
-const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-const motionButton = document.getElementById('motion-control');
-let paused = false;
-try { paused = sessionStorage.getItem('gothos-motion-paused') === 'yes'; } catch {}
-let motion = !reduced.matches && !paused;
-const smallScreen = matchMedia('(max-width: 600px)');
-const background = window.createGhostFibers?.(document.getElementById('fiber-background'), {
-  glowColor: '#bdff4a', lineColor: '#e5ffd2', secondaryColor: '#368d81',
-  layers: 3, twist: 1.2, threads: smallScreen.matches ? 42 : 72,
-  fiberStyle: 'dots', density: smallScreen.matches ? .6 : .85,
-  depthOfField: .85, hoverEffect: 'part', mouseStrength: 1.15, pulseOnClick: true, intro: true, mouseInteraction: motion,
-  particles: .3, sparkle: .35, glow: .8, brightness: .9, grain: .025,
-  speed: .4, rotation: 18, paused: !motion, dpr: Math.min(devicePixelRatio || 1, 1.25)
-});
-function updateBackgroundScroll() {
-  if (!motion) return;
-  const distance = Math.max(1, document.documentElement.scrollHeight - innerHeight);
-  background?.setScroll(Math.max(0, Math.min(1, scrollY / distance)));
-}
-const syncMotion = () => {
-  motion = !reduced.matches && !paused;
-  document.body.classList.toggle('motion-on', motion);
-  document.body.classList.toggle('motion-off', !motion);
-  motionButton.setAttribute('aria-pressed', String(!motion));
-  motionButton.disabled = reduced.matches;
-  motionButton.querySelector('span').textContent = reduced.matches ? 'Reduced motion' : motion ? 'Pause motion' : 'Resume motion';
-  document.getElementById('motion-icon').setAttribute('d', motion ? 'M6 4v10M12 4v10' : 'm5 3 10 6-10 6Z');
-  background?.update({ paused: !motion, mouseInteraction: motion });
-  updateBackgroundScroll();
-};
-motionButton.addEventListener('click', () => {
-  paused = motion;
-  try { sessionStorage.setItem('gothos-motion-paused', paused ? 'yes' : 'no'); } catch {}
-  syncMotion();
-});
-reduced.addEventListener('change', syncMotion);
-smallScreen.addEventListener('change', () => background?.update({ threads: smallScreen.matches ? 42 : 72, density: smallScreen.matches ? .6 : .85 }));
-
-// Reveal content units individually, keeping the product screen and each illustrated card intact.
-document.querySelectorAll('.section-intro.reveal, .feature-copy.reveal, .people-columns > article.reveal, .role-explorer.reveal').forEach(el => el.classList.remove('reveal'));
-const revealTargets = [
-  '.hero-copy > :not(.hero-actions)', '.hero-actions > *',
-  '.activity-strip > p', '.activity-types > *',
-  '.section-intro .eyebrow', '.section-intro h2', '.section-intro > p',
-  '.feature-copy > *', '.people-columns > article > *',
-  '.role-explorer > *', '.footer-status > span',
-  '.footer-brand > *', '.footer nav > *', '.footer-note > *', '.footer-signature'
-];
-document.querySelectorAll(revealTargets.join(',')).forEach(el => el.classList.add('reveal'));
-const revealGroups = '.hero-copy, .activity-strip, .section-intro, .feature-copy, .principle-grid, .day-grid, .people-columns > article, .role-explorer, .role-cards, .contact-grid, .footer-status, .footer-brand, .footer nav, .footer-note';
-document.querySelectorAll(revealGroups).forEach(group => {
-  group.querySelectorAll('.reveal').forEach((el, index) => el.style.setProperty('--reveal-delay', Math.min(index, 3) * 70 + 'ms'));
-});
-const reveals = [...document.querySelectorAll('.reveal')];
-if ('IntersectionObserver' in window) {
-  const observer = new IntersectionObserver(entries => entries.forEach(entry => {
-    if (entry.isIntersecting) { entry.target.classList.add('in'); observer.unobserve(entry.target); }
-  }), { threshold: .08, rootMargin: '0px 0px -24px 0px' });
-  reveals.forEach(el => observer.observe(el));
-  document.addEventListener('focusin', event => {
-    const target = event.target.closest('.reveal');
-    if (target) { target.classList.add('in'); observer.unobserve(target); }
-  });
+  'use strict';
+  const SITE_CONFIG = { assistantUrl: '', assistantFrameAllowed: true, assistantVoiceVerified: true };
+  const tickers = new Set();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let paused = false;
+  try { paused = sessionStorage.getItem('gothos-motion-paused') === 'yes'; } catch {}
+  const motion = { enabled: !reduced.matches && !paused };
+  const site = window.Gothos = {
+    config: SITE_CONFIG, motion,
+    addTicker: fn => tickers.add(fn),
+    tick: (now, dt) => tickers.forEach(fn => fn(now, dt))
+  };
   document.documentElement.classList.add('js');
-}
-const menu = document.getElementById('menu-button');
-const navigation = document.getElementById('navigation');
-function closeMenu() {
-  navigation.classList.remove('open');
-  menu.setAttribute('aria-expanded', 'false');
-  menu.setAttribute('aria-label', 'Open navigation');
-}
-menu.addEventListener('click', () => {
-  const open = navigation.classList.toggle('open');
-  menu.setAttribute('aria-expanded', String(open));
-  menu.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
-});
-navigation.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-document.addEventListener('click', e => { if (!e.target.closest('.header')) closeMenu(); });
-document.getElementById('year').textContent = new Date().getFullYear();
+  const motionButton = document.getElementById('motion-control');
+  function syncMotion() {
+    motion.enabled = !reduced.matches && !paused;
+    document.body.classList.toggle('motion-on', motion.enabled);
+    document.body.classList.toggle('motion-off', !motion.enabled);
+    motionButton.setAttribute('aria-pressed', String(!motion.enabled));
+    motionButton.disabled = reduced.matches;
+    motionButton.querySelector('span').textContent = reduced.matches ? 'Reduced motion' : motion.enabled ? 'Pause motion' : 'Resume motion';
+    document.getElementById('motion-icon').setAttribute('d', motion.enabled ? 'M6 4v10M12 4v10' : 'm5 3 10 6-10 6Z');
+    if (!motion.enabled) finishSequence();
+    dispatchEvent(new Event('gothos-motion'));
+  }
+  motionButton.addEventListener('click', () => {
+    paused = motion.enabled;
+    try { sessionStorage.setItem('gothos-motion-paused', paused ? 'yes' : 'no'); } catch {}
+    syncMotion();
+  });
+  reduced.addEventListener('change', syncMotion);
+  document.addEventListener('visibilitychange', () => document.body.classList.toggle('document-hidden', document.hidden));
+  const triggers = new WeakMap();
+  const overflowBefore = new WeakMap();
+  site.openDialog = (dialog, trigger) => {
+    if (dialog.open) return;
+    triggers.set(dialog, trigger || document.activeElement);
+    overflowBefore.set(dialog, document.body.style.overflow);
+    dialog.showModal();
+    document.body.style.overflow = 'hidden';
+  };
+  site.closeDialog = dialog => {
+    if (!dialog.open || dialog.classList.contains('is-closing')) return;
+    if (dialog.id === 'chat-dialog' && motion.enabled) {
+      dialog.classList.add('is-closing');
+      dispatchEvent(new CustomEvent('gothos-chat', { detail: { open: false } }));
+      setTimeout(() => { dialog.close(); dialog.classList.remove('is-closing'); }, 240);
+    } else dialog.close();
+  };
+  document.querySelectorAll('dialog').forEach(dialog => {
+    dialog.querySelectorAll('.dialog-close').forEach(button => button.addEventListener('click', () => site.closeDialog(dialog)));
+    dialog.addEventListener('click', event => { if (event.target === dialog) site.closeDialog(dialog); });
+    dialog.addEventListener('cancel', event => {
+      if (dialog.id === 'chat-dialog') { event.preventDefault(); site.closeDialog(dialog); }
+    });
+    dialog.addEventListener('close', () => {
+      document.body.style.overflow = overflowBefore.get(dialog) || '';
+      queueMicrotask(() => {
+        if (!document.querySelector('dialog[open]')) {
+          const trigger = triggers.get(dialog);
+          if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+        }
+      });
+    });
+    dialog.addEventListener('keydown', event => {
+      if (event.key !== 'Tab') return;
+      const focusable = [...dialog.querySelectorAll('button:not(:disabled),a[href],input:not(:disabled),textarea,select,summary,iframe,[tabindex="0"]')].filter(el => el.tabIndex >= 0 && el.getClientRects().length);
+      const first = focusable[0], last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    });
+  });
+  const menu = document.getElementById('navigation'), menuButton = document.getElementById('menu-button');
+  function closeMenu() { menu.classList.remove('open'); menuButton.setAttribute('aria-expanded', 'false'); menuButton.setAttribute('aria-label', 'Open navigation'); }
+  menuButton.addEventListener('click', () => {
+    const open = menu.classList.toggle('open');
+    menuButton.setAttribute('aria-expanded', String(open));
+    menuButton.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+  });
+  menu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { const open=menu.classList.contains('open');closeMenu();if(open)menuButton.focus(); } });
+  document.addEventListener('click', e => { if(!e.target.closest('.site-header'))closeMenu(); });
+  document.getElementById('year').textContent = new Date().getFullYear();
+  const revealObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => { if(entry.isIntersecting){entry.target.classList.add('in');revealObserver.unobserve(entry.target);} });
+  }, { threshold:.3 });
+  document.querySelectorAll('.reveal').forEach((el,index) => { el.style.setProperty('--reveal-delay', ((index%3)*70)+'ms');revealObserver.observe(el); });
+  document.addEventListener('focusin', e => {
+    const target = e.target.closest('.reveal');
+    if (target) { target.style.transition = 'none'; target.classList.add('in'); }
+  });
 
-const previewPanel = document.getElementById('elog-panel');
-const dashboardMarkup = previewPanel.innerHTML;
-const previewTabs = [...document.querySelectorAll('[data-preview-tab]')];
-const previewScreens = {
+  const previewPanel = document.getElementById('elog-panel');
+  const dashboardMarkup = previewPanel.innerHTML;
+  const previewTabs = [...document.querySelectorAll('[data-preview-tab]')];
+  const previewLayout = matchMedia('(max-width: 759px)');
+  const syncPreviewOrientation = () => document.querySelector('.elog-nav').setAttribute('aria-orientation', previewLayout.matches ? 'horizontal' : 'vertical');
+  previewLayout.addEventListener('change', syncPreviewOrientation);
+  syncPreviewOrientation();
+  const previewScreens = {
   dashboard: { title: 'Dashboard' },
   cases: { title: 'Case Logs', singular: 'clinical case', icon: 'book', description: 'Document clinical encounters with their training context and follow faculty verification.', columns: ['Date', 'Clinical case', 'Verification'], guide: ['Record the clinical activity and its context.', 'Submit the entry for assigned faculty to review.', 'Follow the entry’s verification status in your logbook.'] },
   procedures: { title: 'Procedure Logs', singular: 'procedure', icon: 'activity', description: 'Keep procedure records, supervision context, and verification status together.', columns: ['Date', 'Procedure', 'Verification'], guide: ['Record the procedure and its training details.', 'Keep supervision and participation with the entry.', 'Follow faculty verification alongside the record.'] },
@@ -93,137 +107,96 @@ const previewScreens = {
   postings: { title: 'Postings & Rotations', singular: 'posting', icon: 'calendar', description: 'Keep your clinical rotations, posting dates, and department assignment in view.', columns: ['Posting', 'Dates', 'Department'], guide: ['View your clinical posting and rotation records.', 'Check the dates attached to each assignment.', 'Keep the posting context close to your training activity.'] },
   assessments: { title: 'Assessments', singular: 'assessment', icon: 'clipboard', description: 'View the assessment records and feedback entered during your training.', columns: ['Assessment', 'Date', 'Faculty feedback'], guide: ['Open the assessments recorded during training.', 'Read faculty feedback in the same workspace.', 'Keep assessment context with your wider training record.'] }
 };
-function showPreviewScreen(key, focusTab = false) {
-  const screen = previewScreens[key];
-  if (!screen) return;
+  function showPreviewScreen(key, focusTab = false) {
+    const screen = previewScreens[key];
+    if (!screen) return;
+    previewTabs.forEach(tab => {
+      const selected = tab.dataset.previewTab === key;
+      tab.classList.toggle('active', selected);
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      if (selected && focusTab) tab.focus();
+    });
+    document.getElementById('preview-screen-title').textContent = screen.title;
+    previewPanel.setAttribute('aria-labelledby', 'preview-tab-' + key);
+    if (key === 'dashboard') previewPanel.innerHTML = dashboardMarkup;
+    else previewPanel.innerHTML = '<div class="elog-list-page"><div class="elog-list-intro"><span class="elog-section-icon"><svg aria-hidden="true"><use href="#'+screen.icon+'"/></svg></span><div><h3>'+screen.title+'</h3><p>'+screen.description+'</p></div></div><div class="elog-list-table"><div class="elog-table-head">'+screen.columns.map(column=>'<span>'+column+'</span>').join('')+'</div><div class="elog-empty"><svg aria-hidden="true"><use href="#'+screen.icon+'"/></svg><strong>No '+screen.singular+' records in this preview.</strong><p>Your personal and clinical records are not loaded here.</p></div></div><details class="elog-guide"><summary>How this part of ELogBook works<svg aria-hidden="true"><use href="#chevron"/></svg></summary><ol>'+screen.guide.map(step=>'<li>'+step+'</li>').join('')+'</ol></details></div>';
+    previewPanel.scrollTop = 0;
+  }
   previewTabs.forEach(tab => {
-    const selected = tab.dataset.previewTab === key;
-    tab.classList.toggle('active', selected);
-    tab.setAttribute('aria-selected', String(selected));
-    tab.tabIndex = selected ? 0 : -1;
-    if (selected && focusTab) tab.focus();
+    tab.addEventListener('click', () => showPreviewScreen(tab.dataset.previewTab));
+    tab.addEventListener('keydown', event => {
+      const index=previewTabs.indexOf(tab);
+      let next;
+      if(event.key==='ArrowDown'||event.key==='ArrowRight')next=(index+1)%previewTabs.length;
+      else if(event.key==='ArrowUp'||event.key==='ArrowLeft')next=(index-1+previewTabs.length)%previewTabs.length;
+      else if(event.key==='Home')next=0;else if(event.key==='End')next=previewTabs.length-1;
+      if(next!==undefined){event.preventDefault();showPreviewScreen(previewTabs[next].dataset.previewTab,true);}
+    });
   });
-  document.getElementById('preview-screen-title').textContent = screen.title;
-  previewPanel.setAttribute('aria-labelledby', 'preview-tab-' + key);
-  if (key === 'dashboard') previewPanel.innerHTML = dashboardMarkup;
-  else previewPanel.innerHTML = `<div class="elog-list-page"><div class="elog-list-intro"><span class="elog-section-icon"><svg aria-hidden="true"><use href="#${screen.icon}"/></svg></span><div><h3>${screen.title}</h3><p>${screen.description}</p></div></div><div class="elog-list-table"><div class="elog-table-head">${screen.columns.map(column => `<span>${column}</span>`).join('')}</div><div class="elog-empty"><svg aria-hidden="true"><use href="#${screen.icon}"/></svg><strong>No ${screen.singular} records in this preview.</strong><p>Your personal and clinical records are not loaded here.</p></div></div><details class="elog-guide"><summary>How this part of ELogBook works<svg aria-hidden="true"><use href="#chevron"/></svg></summary><ol>${screen.guide.map(step => `<li>${step}</li>`).join('')}</ol></details></div>`;
-  previewPanel.scrollTop = 0;
-}
-previewTabs.forEach(tab => {
-  tab.addEventListener('click', () => showPreviewScreen(tab.dataset.previewTab));
-  tab.addEventListener('keydown', event => {
-    const index = previewTabs.indexOf(tab);
-    let next;
-    if (event.key === 'ArrowDown') next = (index + 1) % previewTabs.length;
-    else if (event.key === 'ArrowUp') next = (index - 1 + previewTabs.length) % previewTabs.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = previewTabs.length - 1;
-    if (next !== undefined) { event.preventDefault(); showPreviewScreen(previewTabs[next].dataset.previewTab, true); }
+  previewPanel.addEventListener('click',event=>{const button=event.target.closest('[data-preview-go]');if(button)showPreviewScreen(button.dataset.previewGo,true);});
+  const previewDialog=document.getElementById('preview-dialog'), previewWindow=document.getElementById('product-window'), previewHome=document.getElementById('product-preview');
+  document.querySelectorAll('[data-expand-preview]').forEach(button=>button.addEventListener('click',event=>{
+    if(previewDialog.open)return;
+    document.getElementById('preview-dialog-host').append(previewWindow);
+    site.openDialog(previewDialog,event.currentTarget);
+  }));
+  previewDialog.addEventListener('close',()=>previewHome.append(previewWindow));
+
+  site.downloadBrief = ({name='', email='', topic='', message=''}) => {
+    const line=value=>String(value).replace(/[\r\n]+/g,' ').slice(0,300);
+    const brief = 'Gothos Labs enquiry\n\nName: '+line(name)+'\nEmail: '+line(email)+'\nTopic: '+line(topic)+'\n\n'+String(message).slice(0,3000)+'\n\nPrepared locally on your device. Nothing has been sent and no booking has been made.\n';
+    const url=URL.createObjectURL(new Blob([brief],{type:'text/plain;charset=utf-8'}));
+    const anchor=document.createElement('a');anchor.href=url;anchor.download='gothos-labs-enquiry.txt';
+    document.body.append(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+  };
+  document.getElementById('enquiry-form').addEventListener('submit',event=>{
+    event.preventDefault();const form=event.currentTarget;
+    if(!form.reportValidity())return;
+    const data=new FormData(form);site.downloadBrief({name:data.get('name'),email:data.get('email'),topic:data.get('topic'),message:data.get('message')});
+    document.getElementById('form-status').textContent='Your local brief is ready. Nothing was sent.';
   });
-});
-previewPanel.addEventListener('click', event => {
-  const button = event.target.closest('[data-preview-go]');
-  if (button) showPreviewScreen(button.dataset.previewGo, true);
-});
 
-const previewDialog = document.getElementById('preview-dialog');
-const previewWindow = document.getElementById('product-window');
-const previewHome = document.getElementById('product-preview');
-let previewTrigger;
-function openPreview(event) {
-  if (previewDialog.open) return;
-  previewTrigger = event.currentTarget;
-  previewHome.style.minHeight = previewHome.getBoundingClientRect().height + 'px';
-  document.getElementById('preview-dialog-host').append(previewWindow);
-  previewDialog.showModal();
-}
-document.getElementById('watch-workflow').addEventListener('click', openPreview);
-document.querySelectorAll('[data-expand-preview]').forEach(button => button.addEventListener('click', openPreview));
-previewDialog.addEventListener('close', () => {
-  previewHome.append(previewWindow);
-  previewHome.style.minHeight = '';
-  previewTrigger?.focus({ preventScroll: true });
-});
-
-const roles = {
-  resident: { title: 'The record behind your training.', label: 'Resident', copy: 'Logs, verification, and progress in one workspace.', description: 'Document clinical cases, procedures, and academic activities. Follow verification and the training requirements set by your department.', steps: ['Record clinical and academic activity in your logbook.', 'Track faculty verification and completion against department requirements.', 'Keep postings, assessments, and supporting training records in view.'] },
-  faculty: { title: 'A review queue with context.', label: 'Faculty', copy: 'Verify entries. Follow residents. Record assessments.', description: 'The faculty workspace brings an evaluation queue, assigned resident progress, and training assessments together.', steps: ['Open the entries waiting in your evaluation queue.', 'Review and verify the work of assigned residents.', 'Follow resident progress and record training assessments.'] },
-  department: { title: 'The department’s training picture.', label: 'Department', copy: 'Requirements, access, and oversight for your department.', description: 'Heads of department manage training requirements, resident and faculty access, departmental progress, and leave approvals.', steps: ['Set the requirements used to measure training progress.', 'Manage resident registrations and faculty access.', 'Review departmental training activity and leave approvals.'] }
-};
-const detailDialog = document.getElementById('detail-dialog');
-const enquiryDialog = document.getElementById('enquiry-dialog');
-let currentRole = 'resident';
-function openRole(role) {
-  const data = roles[role];
-  document.getElementById('dialog-context').textContent = 'Arogya ELogBook / ' + data.label;
-  document.getElementById('dialog-title').textContent = data.title;
-  document.getElementById('dialog-description').textContent = data.description;
-  document.getElementById('dialog-steps').replaceChildren(...data.steps.map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
-  detailDialog.showModal();
-}
-document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => openRole(button.dataset.open)));
-const slider = document.getElementById('role-slider');
-function updateRole() {
-  currentRole = ['resident', 'faculty', 'department'][Number(slider.value)];
-  const role = roles[currentRole];
-  document.getElementById('selected-role').textContent = role.label;
-  document.getElementById('selected-role-copy').textContent = role.copy;
-  slider.setAttribute('aria-valuetext', role.label);
-  const fill = Number(slider.value) * 50;
-  slider.style.background = 'linear-gradient(to right,var(--lime) ' + fill + '%,#333b28 ' + fill + '%)';
-}
-slider.addEventListener('input', updateRole);
-updateRole();
-document.getElementById('explore-selected-role').addEventListener('click', () => openRole(currentRole));
-document.querySelectorAll('dialog').forEach(dialog => {
-  dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('click', event => {
-    const r = dialog.getBoundingClientRect();
-    if (event.target === dialog && (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom)) dialog.close();
+  const assistantItems=[...document.querySelectorAll('[data-sequence]')], assistantTyping=document.getElementById('assistant-typing');
+  let sequenceStarted=false, sequenceRunning=false, sequenceTime=0;
+  function renderSequence(){
+    const thresholds=[0,.6,1.3,2.7];
+    assistantItems.forEach((el,index)=>el.classList.toggle('shown',sequenceTime>=thresholds[index]));
+    assistantTyping.hidden=!(sequenceTime>=2&&sequenceTime<2.7);
+  }
+  function finishSequence(){sequenceTime=3;sequenceRunning=false;renderSequence();}
+  const sectionObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{
+    entry.target.classList.toggle('is-visible',entry.isIntersecting);
+    if(entry.target.id==='assistant'&&entry.isIntersecting&&!sequenceStarted){
+      sequenceStarted=true;sequenceRunning=motion.enabled;
+      if(!motion.enabled)finishSequence();else{sequenceTime=0;renderSequence();site.flight?.request();}
+    }
+  }),{threshold:.15});
+  document.querySelectorAll('[data-flight-section]').forEach(section=>sectionObserver.observe(section));
+  site.addTicker((_now,dt)=>{
+    if(!sequenceRunning||!document.getElementById('assistant').classList.contains('is-visible'))return;
+    sequenceTime+=dt;renderSequence();if(sequenceTime>=3)sequenceRunning=false;
   });
-});
-document.getElementById('dialog-enquire').addEventListener('click', () => {
-  detailDialog.close();
-  document.getElementById('brief-topic').value = 'Arogya ELogBook';
-  enquiryDialog.showModal();
-});
-document.getElementById('enquiry-form').addEventListener('submit', event => {
-  event.preventDefault();
-  if (!event.target.reportValidity()) return;
-  document.getElementById('brief-email').value = document.getElementById('enquiry-email').value;
-  document.getElementById('brief-topic').value = 'A medical software project';
-  enquiryDialog.showModal();
-});
-document.getElementById('brief-form').addEventListener('submit', event => {
-  event.preventDefault();
-  if (!event.target.reportValidity()) return;
-  const data = new FormData(event.target);
-  const text = 'GOTHOS LABS - ENQUIRY\n\nEmail: ' + data.get('email') + '\nTopic: ' + data.get('topic') + '\n\n' + data.get('message') + '\n\nPrepared locally. This enquiry has not been sent.\n';
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
-  const link = document.createElement('a'); link.href = url; link.download = 'gothos-labs-enquiry.txt'; link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-  document.getElementById('form-status').textContent = 'Your enquiry brief is ready in Downloads. Nothing has been sent.';
-});
-
-const statement = document.querySelector('[data-word-reveal]');
-const sentence = statement.textContent;
-statement.replaceChildren(...sentence.split(' ').flatMap((word, index) => {
-  const span = document.createElement('span'); span.textContent = word;
-  return index ? [document.createTextNode(' '), span] : [span];
-}));
-const words = [...statement.querySelectorAll('span')];
-const header = document.getElementById('header');
-let scrollQueued = false;
-function updateScroll() {
-  header.classList.toggle('scrolled', scrollY > 25);
-  updateBackgroundScroll();
-  const rect = statement.getBoundingClientRect();
-  const progress = Math.max(0, Math.min(1, (innerHeight * .86 - rect.top) / (innerHeight * .47)));
-  words.forEach((word, index) => { word.style.opacity = !motion || progress * words.length > index ? '1' : '.2'; });
-  scrollQueued = false;
-}
-addEventListener('scroll', () => { if (!scrollQueued) { scrollQueued = true; requestAnimationFrame(updateScroll); } }, { passive: true });
-addEventListener('resize', updateScroll, { passive: true });
-syncMotion();
-updateScroll();
+  function assistantURL(){
+    if(!SITE_CONFIG.assistantUrl)return null;
+    try{const url=new URL(SITE_CONFIG.assistantUrl,location.href);if(url.protocol==='https:'||(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname)))return url;}catch{}
+    return null;
+  }
+  site.configureAssistantButton=button=>{
+    const available=!!assistantURL();button.disabled=!available;button.textContent=available?'Try the live assistant':'Live demo coming soon';
+  };
+  site.openAssistant=trigger=>{
+    const url=assistantURL();if(!url)return;
+    if(!SITE_CONFIG.assistantFrameAllowed){window.open(url.href,'_blank','noopener,noreferrer');return;}
+    const host=document.getElementById('demo-host');host.replaceChildren();
+    const frame=document.createElement('iframe');frame.title='Arogya Health Assistant demo';frame.loading='lazy';frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-popups');
+    if(SITE_CONFIG.assistantVoiceVerified)frame.setAttribute('allow','microphone');
+    frame.src=url.href;host.append(frame);
+    document.getElementById('demo-new-tab').href=url.href;
+    site.openDialog(document.getElementById('assistant-dialog'),trigger);
+  };
+  document.querySelectorAll('[data-live-assistant]').forEach(button=>{site.configureAssistantButton(button);button.addEventListener('click',()=>site.openAssistant(button));});
+  document.getElementById('assistant-dialog').addEventListener('close',()=>document.getElementById('demo-host').replaceChildren());
+  syncMotion();
 })();
+
