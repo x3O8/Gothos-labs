@@ -9,6 +9,56 @@
   const list = document.getElementById('chat-messages');
   const typing = document.getElementById('chat-typing');
   const layer = document.getElementById('owl-layer');
+  const pageOwl = document.getElementById('owl');
+  const avatarImage = document.querySelector('.chat-owl-avatar');
+  const avatar = document.createElement('div');
+  avatar.className = 'chat-owl-avatar';
+  avatar.setAttribute('aria-hidden', 'true');
+  avatarImage.replaceWith(avatar);
+  let transfer = null;
+  function stopTransfer() {
+    if (!transfer) return;
+    transfer.animation.cancel(); transfer.element.remove(); transfer = null;
+  }
+  function fly(from, to) {
+    stopTransfer();
+
+    const element = document.createElement('div');
+    element.className = 'chat-owl-transfer';
+    const svg = pageOwl.querySelector('svg').cloneNode(true);
+    const left = svg.querySelector('#wingL'), right = svg.querySelector('#wingR');
+    left.style.transformOrigin = '148px 170px'; right.style.transformOrigin = '310px 170px';
+    // Isolate SVG resource IDs from the live character's rig.
+    const ids = [...svg.querySelectorAll('[id]')].map(el => el.id);
+    let markup = svg.outerHTML;
+    ids.sort((a,b) => b.length-a.length).forEach(id => {
+      markup = markup.replaceAll('id="'+id+'"', 'id="transfer-'+id+'"')
+        .replaceAll('#'+id+'"', '#transfer-'+id+'"')
+        .replaceAll('#'+id+')', '#transfer-'+id+')');
+    });
+    avatar.innerHTML = markup.replaceAll('transfer-', 'avatar-');
+    if (!site.motion.enabled) return Promise.resolve();
+    element.innerHTML = markup; dialog.append(element);
+    const pose = rect => `translate(${rect.left}px,${rect.top}px) scale(${rect.width/400})`;
+    const animation = element.animate([
+      {transform:pose(from)},
+      {transform:pose(to)}
+    ], {duration:620,easing:'cubic-bezier(.22,.75,.22,1)',fill:'forwards'});
+    const current = transfer = {element,animation};
+    return animation.finished.catch(() => {}).then(() => {
+      element.remove(); if (transfer === current) transfer = null;
+    });
+  }
+  function avatarDestination() {
+    const panel = dialog.querySelector('.chat-panel');
+    return {left:panel.offsetLeft-panel.offsetWidth/2+12,top:panel.offsetTop+14,width:64};
+  }
+  function animateClose() {
+    const from = transfer ? transfer.element.getBoundingClientRect() : avatar.getBoundingClientRect();
+    avatar.style.visibility = 'hidden';
+    return fly(from, pageOwl.getBoundingClientRect());
+  }
+
   const REFUSAL = "I'm Gothos's website guide, so I can't give medical advice. Please speak to a doctor, or contact your local emergency services if it's urgent.";
   const GREETING = "Hi, I'm Hoot! How can I help you today?";
   const medical = text => /\b(symptoms?|pain|fever|cough|bleed\w*|medicine|medication|dosage|dose|diagnos\w*|treat\w*|emergenc\w*|suicid\w*|overdose|chest|breath\w*|stroke|pregnan\w*|prescri\w*|injur\w*|sick|illness|dizz\w*|nause\w*|vomit\w*|rash|antibiotic|insulin|tablet|pills?|paracetamol|ibuprofen|cancer|headache|migraine|diabet\w*|blood|glucose|cholesterol|heart|asthma|allerg\w*|infect\w*|fracture|covid|seizure|unconscious|faint\w*|wound|burns?|swollen|swelling|numb\w*|weakness|anxiety|anxious|depress\w*)\b|\b(should i take|can i take|stop taking|feel unwell|hurt\w*|health (advice|problem|question|issue|concern))\b|വേദന|മരുന്ന്|പനി/i.test(text);
@@ -47,9 +97,12 @@
   });
   function open(trigger, assistant=false) {
     if(dialog.open)return;
+    const origin = pageOwl.getBoundingClientRect();
     cancelPending();stage='idle';name='';history=[];list.replaceChildren();input.value='';
-    site.openDialog(dialog,trigger);dialog.append(layer);document.body.classList.add('chat-open');
+    site.openDialog(dialog,trigger);document.body.classList.add('chat-open');
     dispatchEvent(new CustomEvent('gothos-chat',{detail:{open:true}}));
+    avatar.style.visibility = 'hidden';
+    fly(origin, avatarDestination()).then(() => { if(dialog.open && !dialog.classList.contains('is-closing')) avatar.style.visibility = ''; });
     message(GREETING);
     if (site.motion.enabled) {
       const bubble = list.lastElementChild;
@@ -113,8 +166,9 @@
   form.addEventListener('submit',e=>{e.preventDefault();send(input.value);});
   document.querySelectorAll('[data-chat]').forEach(button=>button.addEventListener('click',()=>open(button,button.dataset.chat==='assistant')));
   dialog.addEventListener('close',()=>{
-    cancelPending();stage='idle';name='';history=[];input.value='';list.replaceChildren();document.body.append(layer);
+    stopTransfer(); avatar.style.visibility = '';
+    cancelPending();stage='idle';name='';history=[];input.value='';list.replaceChildren();
     document.body.classList.remove('chat-open');dispatchEvent(new CustomEvent('gothos-chat',{detail:{open:false}}));
   });
-  site.chat={open,medical};
+  site.chat={open,medical,animateClose};
 })();

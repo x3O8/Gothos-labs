@@ -44,9 +44,10 @@
   site.closeDialog = dialog => {
     if (!dialog.open || dialog.classList.contains('is-closing')) return;
     if (dialog.id === 'chat-dialog' && motion.enabled) {
+      const returnFlight = site.chat?.animateClose() || Promise.resolve();
       dialog.classList.add('is-closing');
       dispatchEvent(new CustomEvent('gothos-chat', { detail: { open: false } }));
-      setTimeout(() => { dialog.close(); dialog.classList.remove('is-closing'); }, 240);
+      returnFlight.finally(() => { dialog.close(); dialog.classList.remove('is-closing'); });
     } else dialog.close();
   };
   document.querySelectorAll('dialog').forEach(dialog => {
